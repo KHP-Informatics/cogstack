@@ -58,15 +58,42 @@ public class PDFFileItemWriter implements ItemWriter<Document> {
             String contentType = ((String) doc.getAssociativeArray()
                                   .getOrDefault("X-TL-CONTENT-TYPE", "TL_CONTENT_TYPE_UNKNOWN")
                                   ).toLowerCase();
+            if (contentType.startsWith("text/plain;")) {
+                // Because plain text files are usually associated with the char set
+                contentType = "text/plain";
+            }
+            if (contentType.startsWith("text/html;")) {
+                // Because plain text files are usually associated with the char set
+                contentType = "text/html";
+            }
             switch (contentType) {
             case "application/pdf":
                 handlePdf(doc);
                 break;
             case "application/msword":
-                handleMSWord(doc);
+                handleByLibreOffice(doc, "doc");
+                break;
+            case "application/rtf":
+                handleByLibreOffice(doc, "rtf");
+                break;
+            case "application/vnd.ms-excel":
+                handleByLibreOffice(doc, "xls");
+                break;
+            case "application/vnd.ms-powerpoint":
+                handleByLibreOffice(doc, "ppt");
+                break;
+            case "message/rfc822":
+            case "text/plain":
+                handleByLibreOffice(doc, "txt");
+                break;
+            case "text/html":
+                handleByLibreOffice(doc, "html");
                 break;
             case "image/tiff":
-                handleTiff(doc);
+                handleByImageMagick(doc, "tiff");
+                break;
+            case "image/jpeg":
+                handleByImageMagick(doc, "jpeg");
                 break;
             default:
                 break;
@@ -88,14 +115,14 @@ public class PDFFileItemWriter implements ItemWriter<Document> {
             );
     }
 
-    private void handleMSWord(Document doc) throws IOException {
-        // Use Libreoffice to convert the MS word document to pdf
+    private void handleByLibreOffice(Document doc, String fileNameSuffix) throws IOException {
+        // Use Libreoffice to convert the document to pdf
 
         // Create a temp directory for each input document
         Path tempPath = Files.createTempDirectory(doc.getDocName());
 
-        // Dump the MS Word content to a file in the temp directory
-        File tempInputFile = new File(tempPath + File.separator + "file.doc");
+        // Dump the document content to a file in the temp directory
+        File tempInputFile = new File(tempPath + File.separator + "file." + fileNameSuffix);
         FileUtils.writeByteArrayToFile(tempInputFile, doc.getBinaryContent());
 
         String[] cmd = { getLibreOfficeProg(), "--convert-to", "pdf",
@@ -111,14 +138,14 @@ public class PDFFileItemWriter implements ItemWriter<Document> {
         }
     }
 
-    private void handleTiff(Document doc) throws IOException {
-        // Use ImageMagick to convert the tiff image to pdf
+    private void handleByImageMagick(Document doc, String fileNameSuffix) throws IOException {
+        // Use ImageMagick to convert the image to pdf
 
         // Create a temp directory for each input document
         Path tempPath = Files.createTempDirectory(doc.getDocName());
 
         // Dump the binary content to a file in the temp directory
-        File tempInputFile = new File(tempPath + File.separator + "file.tiff");
+        File tempInputFile = new File(tempPath + File.separator + "file." + fileNameSuffix);
         FileUtils.writeByteArrayToFile(tempInputFile, doc.getBinaryContent());
 
         File tempOutputPdfFile = new File(tempPath + File.separator + "file.pdf");
